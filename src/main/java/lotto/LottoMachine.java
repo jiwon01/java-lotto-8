@@ -17,13 +17,17 @@ public class LottoMachine {
     private Integer winnerBonusBall;
 
     public void start() {
-        Integer lottoCount = buyLotto();
+        try {
+            Integer lottoCount = buyLotto();
 
-        getLottoNumbers(lottoCount);
+            getLottoNumbers(lottoCount);
 
-        enterWinningNumbers();
+            enterWinningNumbers();
 
-        printWinningStatistics(lottoCount);
+            printWinningStatistics(lottoCount);
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage());
+        }
     }
 
     /**
@@ -36,7 +40,11 @@ public class LottoMachine {
 
         System.out.println(); // 줄바꿈용
 
-        return calcLottoCount(Integer.valueOf(paidPrice));
+        try {
+            return calcLottoCount(Integer.valueOf(paidPrice));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("[ERROR] 구입 금액은 숫자여야 합니다.");
+        }
     }
 
     /**
@@ -56,7 +64,7 @@ public class LottoMachine {
 
     private void generateAndPrintOneLotto(int currentIndex, int totalCount) {
         // 랜덤 번호 생성 (1-45 중 6개)
-        List<Integer> numbers = Randoms.pickUniqueNumbersInRange(lottoMinNum, lottoMaxNum, lottoBallCount);
+        List<Integer> numbers = new ArrayList<>(Randoms.pickUniqueNumbersInRange(lottoMinNum, lottoMaxNum, lottoBallCount));
         Collections.sort(numbers);
 
         // Lotto 객체 생성 및 저장
@@ -164,6 +172,10 @@ public class LottoMachine {
     }
 
     private Integer calcLottoCount(Integer price) {
+        // 0원 이하인가?
+        if (price <= 0) {
+            throw new IllegalArgumentException("[ERROR] 구입 금액은 0보다 커야 합니다.");
+        }
         // 1000원으로 딱 떨어지지 않는가?
         if (price % lottoPrice != 0) {
             throw new IllegalArgumentException("[ERROR] 구입 금액은 1,000원 단위로 입력해야 합니다.");
@@ -180,8 +192,12 @@ public class LottoMachine {
         }
 
         List<Integer> numbers = new ArrayList<>();
-        for (String part : parts) {
-            numbers.add(Integer.valueOf(part.trim()));
+        try {
+            for (String part : parts) {
+                numbers.add(Integer.valueOf(part.trim()));
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("[ERROR] 당첨 번호는 숫자여야 합니다.");
         }
 
         // Lotto 객체를 통해 검증 (범위, 중복 체크)
@@ -190,7 +206,12 @@ public class LottoMachine {
     }
 
     private void validateBonusNumber(String input, List<Integer> winningNumbers) {
-        Integer bonusNumber = Integer.valueOf(input.trim());
+        Integer bonusNumber;
+        try {
+            bonusNumber = Integer.valueOf(input.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("[ERROR] 보너스 번호는 숫자여야 합니다.");
+        }
 
         if (bonusNumber < lottoMinNum || bonusNumber > lottoMaxNum) {
             throw new IllegalArgumentException("[ERROR] 보너스 번호는 " + lottoMinNum + "부터 " + lottoMaxNum + " 사이의 숫자여야 합니다.");
