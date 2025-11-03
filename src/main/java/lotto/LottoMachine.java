@@ -22,6 +22,8 @@ public class LottoMachine {
         getLottoNumbers(lottoCount);
 
         enterWinningNumbers();
+
+        printWinningStatistics(lottoCount);
     }
 
     /**
@@ -48,22 +50,31 @@ public class LottoMachine {
         System.out.println(count + "개를 구매했습니다.");
 
         for (int i = 0; i < count; i++) {
-            // 랜덤 번호 생성 (1-45 중 6개)
-            List<Integer> numbers = Randoms.pickUniqueNumbersInRange(lottoMinNum, lottoMaxNum, lottoCount);
-            Collections.sort(numbers);
-
-            // myLotto 배열에 저장
-            for (Integer number : numbers) {
-                myLotto[index++] = number;
-            }
-
-            // 발행된 로또 번호 출력
-            System.out.print(numbers);
-            if (i < count - 1) {
-                System.out.println();
-            }
+            index = generateAndPrintOneLotto(index, i, count);
         }
         System.out.println(); // 마지막 줄바꿈
+    }
+
+    private int generateAndPrintOneLotto(int index, int currentIndex, int totalCount) {
+        // 랜덤 번호 생성 (1-45 중 6개)
+        List<Integer> numbers = Randoms.pickUniqueNumbersInRange(lottoMinNum, lottoMaxNum, lottoCount);
+        Collections.sort(numbers);
+
+        // myLotto 배열에 저장
+        for (Integer number : numbers) {
+            myLotto[index++] = number;
+        }
+
+        // 발행된 로또 번호 출력
+        printLottoNumbers(numbers, currentIndex, totalCount);
+        return index;
+    }
+
+    private void printLottoNumbers(List<Integer> numbers, int currentIndex, int totalCount) {
+        System.out.print(numbers);
+        if (currentIndex < totalCount - 1) {
+            System.out.println();
+        }
     }
 
     /**
@@ -82,6 +93,115 @@ public class LottoMachine {
         winnerBonusBall = Integer.valueOf(winningBonusBallNumbers);
     }
 
+    /**
+     * 4. 당첨 통계 출력
+     */
+    private void printWinningStatistics(Integer lottoCount) {
+        int[] rankCount = calculateRankCount();
+        printStatistics(rankCount);
+        printProfitRate(rankCount, lottoCount);
+    }
+
+    private int[] calculateRankCount() {
+        int[] rankCount = new int[6]; // 1등~5등 (인덱스 1~5 사용)
+        int totalBoughtCount = myLotto.length / this.lottoCount;
+
+        for (int i = 0; i < totalBoughtCount; i++) {
+            Integer[] oneLotto = extractOneLotto(i);
+            int rank = checkWinningRank(oneLotto);
+            if (rank > 0) {
+                rankCount[rank]++;
+            }
+        }
+        return rankCount;
+    }
+
+    private Integer[] extractOneLotto(int lottoIndex) {
+        Integer[] oneLotto = new Integer[lottoBallCount];
+        for (int j = 0; j < lottoBallCount; j++) {
+            oneLotto[j] = myLotto[lottoIndex * this.lottoCount + j];
+        }
+        return oneLotto;
+    }
+
+    private void printStatistics(int[] rankCount) {
+        System.out.println("\n당첨 통계");
+        System.out.println("---");
+        System.out.println("3개 일치 (5,000원) - " + rankCount[5] + "개");
+        System.out.println("4개 일치 (50,000원) - " + rankCount[4] + "개");
+        System.out.println("5개 일치 (1,500,000원) - " + rankCount[3] + "개");
+        System.out.println("5개 일치, 보너스 볼 일치 (30,000,000원) - " + rankCount[2] + "개");
+        System.out.println("6개 일치 (2,000,000,000원) - " + rankCount[1] + "개");
+    }
+
+    private void printProfitRate(int[] rankCount, Integer lottoCount) {
+        long totalPrize = (long) rankCount[5] * 5000
+                        + (long) rankCount[4] * 50000
+                        + (long) rankCount[3] * 1500000
+                        + (long) rankCount[2] * 30000000
+                        + (long) rankCount[1] * 2000000000L;
+
+        int totalSpent = lottoCount * lottoPrice;
+        double profitRate = (double) totalPrize / totalSpent * 100;
+
+        System.out.printf("총 수익률은 %.1f%%입니다.\n", profitRate);
+    }
+
+    private int checkWinningRank(Integer[] oneLotto) {
+        int matchCount = countMatchingNumbers(oneLotto);
+        boolean bonusMatch = hasBonusMatch(oneLotto);
+
+        return determineRank(matchCount, bonusMatch);
+    }
+
+    private int countMatchingNumbers(Integer[] oneLotto) {
+        int matchCount = 0;
+        for (Integer myNumber : oneLotto) {
+            if (isWinningNumber(myNumber)) {
+                matchCount++;
+            }
+        }
+        return matchCount;
+    }
+
+    private boolean isWinningNumber(Integer number) {
+        for (Integer winNumber : winnerBall) {
+            if (number.equals(winNumber)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasBonusMatch(Integer[] oneLotto) {
+        for (Integer myNumber : oneLotto) {
+            if (myNumber.equals(winnerBonusBall)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int determineRank(int matchCount, boolean bonusMatch) {
+        if (matchCount == 6) {
+            return 1; // 1등
+        }
+        if (matchCount == 5 && bonusMatch) {
+            return 2; // 2등
+        }
+        if (matchCount == 5) {
+            return 3; // 3등
+        }
+        if (matchCount == 4) {
+            return 4; // 4등
+        }
+        if (matchCount == 3) {
+            return 5; // 5등
+        }
+
+        return 0; // 당첨 안됨
+    }
+
     private Integer calcLottoCount(Integer price) {
         // 1000원으로 딱 떨어지지 않는가?
         if (price % lottoPrice != 0) {
@@ -92,19 +212,28 @@ public class LottoMachine {
     }
 
     private void checkRangeLotto(Integer[] lotto) {
-        // 1. 범위 검증 (1-45)
+        validateRange(lotto);
+        validateDuplication(lotto);
+    }
+
+    private void validateRange(Integer[] lotto) {
         for (Integer number : lotto) {
             if (number < 1 || number > 45) {
                 throw new IllegalArgumentException("[ERROR] 로또 번호는 1부터 45 사이의 숫자여야 합니다.");
             }
         }
+    }
 
-        // 2. 중복 검증
+    private void validateDuplication(Integer[] lotto) {
         for (int i = 0; i < lotto.length; i++) {
-            for (int j = i + 1; j < lotto.length; j++) {
-                if (lotto[i].equals(lotto[j])) {
-                    throw new IllegalArgumentException("[ERROR] 로또 번호는 중복될 수 없습니다.");
-                }
+            checkDuplicationFrom(lotto, i);
+        }
+    }
+
+    private void checkDuplicationFrom(Integer[] lotto, int startIndex) {
+        for (int j = startIndex + 1; j < lotto.length; j++) {
+            if (lotto[startIndex].equals(lotto[j])) {
+                throw new IllegalArgumentException("[ERROR] 로또 번호는 중복될 수 없습니다.");
             }
         }
     }
